@@ -12,6 +12,8 @@ Campaign Lab helps a small-business owner who does their own marketing decide wh
 | **Planning a campaign.** Recalled records were printed as raw log lines, and the LLM was marked "(future)". | **Planning a test.** An AI strategist reads those records and recommends one change. The marker shows exactly what version B changes, in the business's own branded email. |
 | ![Buildathon: Dashboard](docs/screenshots/before-dashboard.png) | ![Fork: Results](docs/screenshots/after-results-dashboard.png) |
 | **Dashboard.** Raw metric names (`ctr`, `engagement_rate`), code-styled lessons, the playbook as collapsed JSON. | **Results.** Plain-language lessons, a chart in the same visual language, and a clear next action. |
+| ![Buildathon: Onboarding](docs/screenshots/before-onboarding.png) | ![Fork: Your brand](docs/screenshots/after-your-brand.png) |
+| **Onboarding.** The team's website + Instagram import (screenshot, recent posts, business profile, brand kit), reached from a radio list with no sense of what comes next. | **Your brand.** The same import as step 1 of 3 in the guided flow: what was imported, the profile and brand kit in the new design, and "Run a test" as the next action. |
 
 New in the fork:
 

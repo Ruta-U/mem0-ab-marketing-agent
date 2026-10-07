@@ -576,6 +576,8 @@ def brand_page():
             st.session_state.reimport = True
             st.rerun()
         with st.container(border=True):
+            onboarding.render_scrape_media(profile)  # what was imported: website + recent posts
+            st.divider()
             onboarding.render_brand_kit(profile)
         return
 
