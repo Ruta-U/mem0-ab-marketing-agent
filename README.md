@@ -8,17 +8,16 @@ Campaign Lab helps a small-business owner who does their own marketing decide wh
 
 | Buildathon version | This fork |
 |---|---|
+| ![Buildathon: first page](docs/screenshots/before-first-page.png) | ![Fork: Home for a new user](docs/screenshots/after-home-new-user.png) |
+| **First page.** A new user lands on an empty dashboard for a placeholder business ("demo-coffee-co"): zeros, a demo form, and a radio list of pages with no clear starting point. | **Home.** A three-step path (set up your brand → run your first test → run a follow-up test) with one "Start here" action, and a one-click sample business for exploring. |
 | ![Buildathon: New campaign](docs/screenshots/before-new-campaign.png) | ![Fork: Run a test](docs/screenshots/after-run-a-test.png) |
 | **Planning a campaign.** Recalled records were printed as raw log lines, and the LLM was marked "(future)". | **Planning a test.** An AI strategist reads those records and recommends one change. The marker shows exactly what version B changes, in the business's own branded email. |
 | ![Buildathon: Dashboard](docs/screenshots/before-dashboard.png) | ![Fork: Results](docs/screenshots/after-results-dashboard.png) |
 | **Dashboard.** Raw metric names (`ctr`, `engagement_rate`), code-styled lessons, the playbook as collapsed JSON. | **Results.** Plain-language lessons, a chart in the same visual language, and a clear next action. |
 
-New in the fork:
+New in the fork: an honest, actionable result. The verdict is labeled as simulated, with A vs B numbers, the lesson saved to memory, and the winning version ready to copy.
 
-| A guided first run | An honest, actionable result |
-|---|---|
-| ![Fork: Home for a new user](docs/screenshots/after-home-new-user.png) | ![Fork: Test result](docs/screenshots/after-results-verdict.png) |
-| Home walks a new user through three steps (brand → first test → follow-up test), with one "Start here" action and a one-click sample business. | A verdict labeled as simulated, A vs B numbers, the lesson saved to memory, and the winning version ready to copy. |
+![Fork: Test result](docs/screenshots/after-results-verdict.png)
 
 ## What I added in this fork
 
