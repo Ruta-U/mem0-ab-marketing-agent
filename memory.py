@@ -16,9 +16,10 @@ import requests
 from dotenv import load_dotenv
 from mem0 import MemoryClient
 
+from memory_store import AGENT_ID  # one shared-shelf id for the app and these helpers
+
 load_dotenv()
 
-AGENT_ID = "ab_marketing_agent"
 client = MemoryClient()  # reads MEM0_API_KEY from the environment
 
 USER_RULES = """

@@ -61,7 +61,7 @@ def next_round(user_id, channel):
 
 
 def run_round(memory, user_id, channel, brief, name, use_memory=True,
-              plan=None, strategy=None, source="autopilot", memories_used=None):
+              plan=None, strategy=None, source="autopilot", memories_used=None, profile=None):
     """Simulate + learn for one campaign. Without a plan (Quick demo) the rule-based
     autopilot picks the test. Returns the saved campaign record."""
     round_no = next_round(user_id, channel)
@@ -70,6 +70,7 @@ def run_round(memory, user_id, channel, brief, name, use_memory=True,
         plan = agent.plan(memory, channel, use_memory, round_no)
     results = {k: agent.simulate(channel, plan[k], f"{user_id}-{channel}-{round_no}-{k}") for k in ("A", "B")}
     outcome = agent.learn(memory, channel, plan, results, name)
+    agent.share_lesson(memory, channel, plan, outcome, profile)
     primary = agent.CHANNELS[channel]["primary"]
     c = {
         "id": str(uuid.uuid4())[:8], "user_id": user_id, "name": name, "channel": channel,

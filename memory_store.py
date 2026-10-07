@@ -2,7 +2,12 @@
 
 The local mirror keeps the UI instant (Mem0 adds are processed asynchronously)
 and lets the demo run offline if the Mem0 key is missing.
+
+Two shelves, as in memory.py:
+- user_id  = one business: its brand and its own lessons (private)
+- agent_id = the marketing agent: anonymized lessons shared across every business
 """
+import hashlib
 import json
 import os
 import uuid
@@ -12,6 +17,8 @@ from pathlib import Path
 DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
 MIRROR_PATH = DATA_DIR / "memories.json"
+AGENT_ID = "ab_marketing_agent"  # the shared shelf; memory.py uses the same id
+SHARED_OWNER = "__shared__"      # how shared lessons are keyed in the local mirror
 
 
 class MemoryStore:
@@ -27,6 +34,11 @@ class MemoryStore:
                 self.client = MemoryClient(api_key=api_key)
             except Exception as e:  # keep the demo alive without Mem0
                 self.last_error = str(e)
+
+    @property
+    def source(self) -> str:
+        """A stable, non-reversible tag for this business on the shared shelf."""
+        return hashlib.sha1(self.user_id.encode()).hexdigest()[:12]
 
     @property
     def backend(self) -> str:
@@ -107,8 +119,47 @@ class MemoryStore:
             items = [m for m in items if m["metadata"].get("kind") == kind]
         return items
 
+    # ---------- shared shelf (cross-business lessons) ----------
+    def add_shared(self, text: str, metadata: dict) -> dict:
+        """Write an anonymized lesson every business can learn from."""
+        metadata = {**metadata, "kind": "shared_lesson", "source": self.source}
+        item = {"id": str(uuid.uuid4()), "user_id": SHARED_OWNER, "memory": text, "metadata": metadata,
+                "created_at": datetime.now().isoformat(timespec="seconds"), "synced_to_mem0": False}
+        if self.client:
+            try:
+                self.client.add([{"role": "user", "content": text}], agent_id=AGENT_ID,
+                                metadata=metadata, infer=False)
+                item["synced_to_mem0"] = True
+            except Exception as e:
+                self.last_error = str(e)
+        items = self._load()
+        items.append(item)
+        self._save(items)
+        return item
+
+    def search_shared(self, query: str, channel: str | None = None, top_k: int = 5) -> list:
+        """Lessons other businesses shared (never this business's own)."""
+        def keep(md):
+            return md.get("kind") == "shared_lesson" and md.get("source") != self.source and \
+                (channel is None or md.get("channel") == channel)
+        if self.client:
+            try:
+                res = self.client.search(query, filters={"agent_id": AGENT_ID}, top_k=top_k * 3)
+                results = res.get("results", res) if isinstance(res, dict) else res
+                out = [{"memory": r.get("memory", ""), "metadata": r.get("metadata") or {},
+                        "score": r.get("score"), "source": "mem0"} for r in results]
+                out = [r for r in out if keep(r["metadata"])][:top_k]
+                if out:
+                    return out
+            except Exception as e:
+                self.last_error = str(e)
+        shared = [m for m in self._load() if m["user_id"] == SHARED_OWNER and keep(m["metadata"])]
+        return [{"memory": m["memory"], "metadata": m["metadata"], "score": None, "source": "local"}
+                for m in reversed(shared)][:top_k]
+
     def reset(self) -> None:
-        items = [m for m in self._load() if m["user_id"] != self.user_id]
+        items = [m for m in self._load() if m["user_id"] != self.user_id and not (
+            m["user_id"] == SHARED_OWNER and m["metadata"].get("source") == self.source)]
         self._save(items)
         if self.client:
             # Delete per record id: delete_all(filters={"user_id": ...}) is rejected by the
@@ -120,6 +171,11 @@ class MemoryStore:
                     if not batch:
                         break
                     for m in batch:
+                        self.client.delete(memory_id=m["id"])
+                # and this business's contributions to the shared shelf
+                shared = self.client.get_all(filters={"AND": [{"agent_id": AGENT_ID}]}, page_size=100)["results"]
+                for m in shared:
+                    if (m.get("metadata") or {}).get("source") == self.source:
                         self.client.delete(memory_id=m["id"])
             except Exception as e:
                 self.last_error = str(e)
