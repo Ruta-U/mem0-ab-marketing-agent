@@ -161,15 +161,15 @@ def render_instagram_preview(insta, insta_handle):
             with col:
                 shot = fetch_image(post.get("displayUrl"))
                 if shot:
-                    st.image(shot, width="stretch")
+                    st.image(shot, width="stretch", alt="Recent Instagram post")
 
 
 def render_scrape_media(scraped):
     """Redraws the scraped website screenshot + Instagram preview so they stay
     visible across reruns (e.g. after clicking Save), not just during the animation."""
     if scraped.get("screenshot"):
-        st.image(scraped["screenshot"],
-                  caption=f"Screenshot · {scraped.get('website_url') or 'homepage'}", width=420)
+        st.image(scraped["screenshot"], alt="Screenshot of the website's homepage",
+                 caption=f"Screenshot · {scraped.get('website_url') or 'homepage'}", width=420)
     insta_list = load_json(INSTAGRAM_SCRAPE_PATH, [])
     insta = insta_list[0] if insta_list else {}
     if insta:
