@@ -37,7 +37,7 @@ Three claims, in this order of weight:
 - Streamlit (Python) web app; memory via Mem0 Platform with a local JSON fallback; AI strategist via the Claude API (`claude-opus-5-5`, structured output), with an offline rule-based strategist when no valid key is set.
 - **Results are simulated today.** A simulated audience with hidden preferences scores the variants. **Real sends are planned next** (email and Instagram integrations). Until then the product must label results as simulated and never imply real sends or real customer metrics. Design so real metrics can replace simulated ones without restructuring.
 - Brand import is simulated too: canned scrape fixtures, no live scraping.
-- Cross-business learning exists in `memory.py` (user and agent shelves, `remember()`/`recall()`) and the `demo_memory.py` script, but the app's memory adapter does not route through the shared shelf yet (open TODO).
+- Cross-business learning: after a clear win the app writes an anonymized lesson (business type and audience, the winning option; no brand name, no numbers) to the shared agent shelf (`agent_id`), and recalls other businesses' lessons on the same channel as hints before planning. A business never sees its own shared lessons as "another business", and resetting it removes them.
 - Raw metrics live in the app's campaign store; Mem0 holds facts and lessons, not numbers.
 - Undecided: which real email / Instagram providers come first, and pricing or business model.
 

@@ -25,6 +25,7 @@ New in the fork:
 **An AI strategist (the missing LLM).** In the buildathon version, the agent recalled past campaign records and printed them; the planning and copy were rule-based placeholders. Now an LLM reads the Mem0 recall plus the most similar past campaigns, explains what they show, picks the next test, and writes both versions as schema-validated JSON (`strategist.py`).
 - Works with Claude through the Anthropic API, or through OpenRouter, which defaults to a free, zero-cost model (`nvidia/nemotron-3-super-120b-a12b:free`).
 - Guardrails: the model can only choose from tests that haven't been tried, can't re-test a known loser, and must keep any offer the brief names. If it goes off the rails, a built-in strategist takes over and the UI says so.
+- **Learning across businesses:** after a clear win, an anonymized lesson ("For a martial arts school serving children and families, on email, a question subject line beat an urgent subject line.") goes to a shared Mem0 shelf, with no brand name and no numbers. A new business's first tests use those lessons as hints, and the evidence says "Another business…". Your own results always come first.
 - Plain-language lessons ("Greeting readers by first name beat a generic greeting (+19% click-through)") instead of raw log lines, which also gives the model better memory to reason over.
 
 **Product and UX, designed with [Impeccable](https://impeccable.style).** I used the Impeccable design skill in Claude Code as a design director: `init` to write down who the product is for (`PRODUCT.md`), `critique` for scored UX reviews (two independent reviewers: a design review plus a detector and browser scan), then `clarify`, `harden`, `audit`, `bolder`, `adapt` and `polish` passes. The main flow (then called "Create campaign", now "Run a test") went from **19/40 to 23/40** on Nielsen's heuristics between the first two critiques, before a further round of fixes. Highlights:
@@ -35,7 +36,7 @@ New in the fork:
 - **Owner control:** choose the change yourself, edit the wording, get another suggestion, keep one saved plan per channel, and see what changed if the brief is edited.
 - **Accessibility and mobile:** visible focus, labeled previews, readable brand colors (darkened automatically to pass WCAG contrast), 44px touch targets, and a sticky run bar on phones.
 
-**Engineering.** Split the single Streamlit file into modules (`campaigns.py`, `onboarding.py`, `strategist.py`, `ui.py`), added drafts that survive a refresh, and grew the test suite from 9 to 27 offline tests (the LLM is mocked).
+**Engineering.** Split the single Streamlit file into modules (`campaigns.py`, `onboarding.py`, `strategist.py`, `ui.py`), added drafts that survive a refresh, and grew the test suite from 9 to 32 offline tests (the LLM is mocked), plus live Mem0 tests.
 
 ## How it works
 Start on **Home**: it shows the next step. No brand yet? **Load sample data** fills in a demo business so you can explore.
@@ -68,12 +69,13 @@ cp .env.example .env   # add MEM0_API_KEY, plus ANTHROPIC_API_KEY or OPENROUTER_
 - `PRODUCT.md`: who the product is for and its principles (written with Impeccable's `init`). Critique snapshots live in `.impeccable/critique/`.
 - `ui.py`: the "proof sheet" design system (paper/ink, a marker that highlights the one thing a test changes) and components: test statement, email / Instagram previews, results table, playbook strip. Theme fonts live in `.streamlit/config.toml`.
 - Add `?debug=1` to the Run a test URL to see the exact context sent to the strategist.
-- `memory_store.py`: dashboard memory adapter (Mem0 + local JSON mirror/fallback). **TODO:** route its Mem0 calls through `memory.py` `remember()`/`recall()` so the dashboard also uses the shared agent shelf.
+- `memory_store.py`: the app's memory adapter (Mem0 + local JSON mirror/fallback) with both shelves: each business's private memory (`user_id`) and the shared agent shelf (`agent_id`, the same id `memory.py` uses).
 
 ## How Mem0 is used
 - **Onboarding** writes brand info and business info to Mem0 (`kind=brand`).
 - **Before each campaign** the agent searches Mem0 for brand facts + past A/B learnings for that channel, and the AI strategist turns them (plus similar past campaigns) into a recommendation.
 - **After each test** the lesson ("A question subject line beat an urgent subject line (+23% click-through)") and the updated playbook are written back to Mem0, so the next campaign starts from what worked.
+- **Across businesses:** clear wins are also written, anonymized, to the shared agent shelf. Before planning, the agent recalls lessons other businesses shared on the same channel (never its own) and uses them as hints. Resetting a business removes its shared lessons too. The Memory page lists them under "Learned from other businesses".
 - **Memory ON vs OFF benchmark** on the dashboard shows the compounding effect.
 
 ## Memory (Mem0)
@@ -91,4 +93,4 @@ python demo_memory.py         # business #2 recalls what business #1 learned
 ```
 Keep raw metrics for the dashboard in the app's own store. Mem0 holds facts and lessons, not numbers.
 
-Tests: `pytest` runs the Mem0 + simulated-data tests (`tests/test_mem0_simulated.py`) and the strategist tests (`tests/test_strategist.py`, LLM mocked). Live Mem0 tests run only when `MEM0_API_KEY` is set; `pytest -m "not live"` runs offline only.
+Tests: `pytest` runs the Mem0 + simulated-data tests (`tests/test_mem0_simulated.py`), the strategist tests (`tests/test_strategist.py`, LLM mocked) and the cross-business tests (`tests/test_shared_lessons.py`). Live Mem0 tests run only when `MEM0_API_KEY` is set; `pytest -m "not live"` runs offline only.

@@ -122,12 +122,14 @@ def _cap(text: str) -> str:
 
 # ---------------- 1. recall ----------------
 def recall(memory, channel: str, brief: str) -> dict:
-    """Pull brand info + past learnings for this channel."""
+    """Pull brand info + past learnings for this channel, plus what other businesses learned."""
     brand = memory.search(f"brand voice business audience {brief}", filters={"kind": "brand"}, top_k=5)
     learnings = memory.search(f"{channel} A/B test learnings what worked {brief}",
                               filters={"kind": "learning", "channel": channel}, top_k=10)
     playbook = [m for m in memory.all(kind="playbook") if m["metadata"].get("channel") == channel]
-    return {"brand": brand, "learnings": learnings, "playbook": playbook[-1] if playbook else None}
+    shared = memory.search_shared(f"{channel} A/B test lessons that won", channel=channel)
+    return {"brand": brand, "learnings": learnings, "shared": shared,
+            "playbook": playbook[-1] if playbook else None}
 
 
 # ---------------- 2. plan ----------------
@@ -297,3 +299,20 @@ def learn(memory, channel: str, plan_: dict, results: dict, campaign_name: str) 
     pb_text = f"[{channel}] Best-known config: " + ", ".join(f"{k}={v}" for k, v in champion.items())
     memory.add(pb_text, {"kind": "playbook", "channel": channel, "config": champion})
     return {"winner": winner_key, "lift": lift, "tie": tie, "learning": learning["memory"]}
+
+
+def share_lesson(memory, channel: str, plan_: dict, outcome: dict, profile: dict | None = None):
+    """Put an anonymized version of a clear win on the shared shelf, so other businesses
+    can start from it. No brand name and no numbers; ties are not shared."""
+    if outcome.get("tie"):
+        return None
+    dim = plan_["tested_dimension"]
+    win_val = plan_[outcome["winner"]][dim]
+    lose_val = plan_["B" if outcome["winner"] == "A" else "A"][dim]
+    biz = ((profile or {}).get("biz_type") or "small business").strip()
+    audience = ((profile or {}).get("audience") or "").strip()
+    who = f"a {biz.lower()}" + (f" serving {audience.lower()}" if audience else "")
+    text = (f"For {who}, on {channel}, {option_label(channel, dim, win_val)} beat "
+            f"{option_label(channel, dim, lose_val)}.")
+    return memory.add_shared(text, {"channel": channel, "dimension": dim, "winner": win_val,
+                                    "loser": lose_val, "biz_type": biz})

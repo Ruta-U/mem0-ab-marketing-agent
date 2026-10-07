@@ -244,7 +244,7 @@ def metric_label(m):
 
 
 CONFIDENCE = {"low": ("First time testing this", "no past result for this setting yet"),
-              "medium": ("Good bet", "this setting has a past result"),
+              "medium": ("Good bet", "there's a past result to go on"),
               "high": ("Strong evidence", "several past results agree")}
 
 

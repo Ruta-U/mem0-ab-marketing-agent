@@ -91,7 +91,8 @@ def load_sample_data():
         for channel, n in (("email", 5), ("instagram", 3)):
             for _ in range(n):
                 run_round(memory, user_id, channel, DEFAULT_BRIEF,
-                          f"{channel.title()} #{next_round(user_id, channel)}: {agent.short_topic(DEFAULT_BRIEF)}")
+                          f"{channel.title()} #{next_round(user_id, channel)}: {agent.short_topic(DEFAULT_BRIEF)}",
+                          profile=load_json(PROFILE_PATH, {}).get(user_id))
     st.toast("Sample data loaded", icon=":material/check:")
 
 
@@ -263,7 +264,7 @@ def results_page():
             with st.spinner("Running simulated tests..."):
                 for _ in range(int(auto_n)):
                     n = next_round(user_id, auto_ch)
-                    run_round(memory, user_id, auto_ch, auto_brief, f"{auto_ch.title()} #{n}")
+                    run_round(memory, user_id, auto_ch, auto_brief, f"{auto_ch.title()} #{n}", profile=profile)
             st.rerun()
 
     with st.expander("Why memory matters: with vs without memory", icon=":material/compare_arrows:"):
@@ -482,7 +483,7 @@ def render_test(draft):
             with st.spinner("Scoring both versions with a simulated audience..."):
                 c = run_round(memory, user_id, ch, draft["brief"], draft["name"], draft["use_memory"],
                               plan=p, strategy=s, source=draft["source"],
-                              memories_used=len(draft["context"]["learnings"]))
+                              memories_used=len(draft["context"]["learnings"]), profile=profile)
             st.session_state.last_result = c
             save_draft(user_id, ch, None)
             st.rerun()
@@ -606,6 +607,13 @@ def memory_page():
                             unsafe_allow_html=True)
             if not hits:
                 st.caption("No matches. Try fewer words.")
+    shared = memory.search_shared("A/B test lessons that won", top_k=20)
+    if shared:
+        with st.expander(f"Learned from other businesses ({len(shared)})", icon=":material/groups:"):
+            st.caption("Anonymized lessons other businesses shared: no names, no numbers. Campaign Lab uses them "
+                       "as hints when there's no history of your own; your own results always come first.")
+            st.markdown("".join(f'<div class="lesson">{ui.esc(m["memory"])}</div>' for m in shared),
+                        unsafe_allow_html=True)
     items = memory.all()
     if not items:
         st.info("Nothing remembered yet. Set up your brand to get started.", icon=":material/info:")

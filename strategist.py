@@ -112,6 +112,8 @@ def build_prompt(context: dict, brief: str, channel: str, profile: dict,
     lines += [f"- {m['memory']}" for m in context["brand"]] or ["- (none)"]
     lines += ["", "Recalled from memory: A/B learnings (most relevant first)"]
     lines += [f"- {m['memory']}" for m in context["learnings"]] or ["- (none yet: first test on this channel)"]
+    lines += ["", "Lessons other businesses shared (anonymized; a hint, not proof for this audience)"]
+    lines += [f"- {m['memory']}" for m in context.get("shared", [])] or ["- (none yet)"]
     lines += ["", "Most similar past campaigns"]
     lines += [f"- {_campaign_line(c)}" for c in past] or ["- (none)"]
     lines += ["", "Variant A (champion, fixed): " + ", ".join(f"{k}={v}" for k, v in champion.items())]
@@ -252,19 +254,26 @@ def relevant_lessons(memory, channel: str, dim: str, k: int = 3) -> list:
 
 
 def _offline(memory, brief, channel, profile, champion, options, round_no, avoid=(), force=None,
-             use_memory=True) -> dict:
+             use_memory=True, shared=()) -> dict:
     lessons = [m["metadata"] for m in memory.all(kind="learning")
                if m["metadata"].get("channel") == channel] if use_memory else []
     tested_dims = {md["dimension"] for md in lessons}
+    # Options that won for another business: worth checking with this audience.
+    shared_wins = {(m["metadata"].get("dimension"), m["metadata"].get("winner")): m for m in shared}
+    from_shared = None
     if force and tuple(force) in options:
         dim, val = force
     else:
         pool = [o for o in options if o not in avoid] or options
         fresh = [o for o in pool if o[0] not in tested_dims] or pool
-        dim, val = random.Random(f"{channel}-{round_no}-{brief}-{len(avoid)}").choice(fresh)
+        hinted = [o for o in fresh if o in shared_wins]
+        dim, val = random.Random(f"{channel}-{round_no}-{brief}-{len(avoid)}").choice(hinted or fresh)
+        from_shared = shared_wins.get((dim, val))
     what = agent.DIMENSION_LABELS[dim]
     same_dim = [md for md in lessons if md["dimension"] == dim]
     insights = [_lesson_line(channel, md) for md in relevant_lessons(memory, channel, dim)] if use_memory else []
+    if from_shared:
+        insights.append(f"Another business: {from_shared['memory']}")
     if not insights:
         insights = [f"This is your first {'email' if channel == 'email' else 'Instagram'} test, so there's "
                     "no history yet. It sets the baseline the next tests build on."]
@@ -277,6 +286,10 @@ def _offline(memory, brief, channel, profile, champion, options, round_no, avoid
     else:
         rationale = (f"Your current {what} won before. {agent._cap(agent.option_label(channel, dim, val))} "
                      "is the next option worth putting against it.")
+    if from_shared and not same_dim:
+        rationale = (f"{agent._cap(agent.option_label(channel, dim, val))} won for another "
+                     f"{from_shared['metadata'].get('biz_type', 'business').lower()}. Worth checking whether "
+                     "your own audience agrees; only the " + what + " changes.")
     if force:
         rationale = f"You chose this test. Only the {what} changes, so the result is easy to read."
     brand = profile.get("brand_name", "your business")
@@ -288,7 +301,7 @@ def _offline(memory, brief, channel, profile, champion, options, round_no, avoid
         "hypothesis": (f"{agent._cap(agent.option_label(channel, dim, val))} gets more "
                        f"{agent.METRIC_LABELS[agent.CHANNELS[channel]['primary']].lower()} than "
                        f"{agent.option_label(channel, dim, champion[dim])}."),
-        "confidence": "medium" if same_dim else "low",
+        "confidence": "medium" if same_dim or from_shared else "low",
         "variant_a": agent.template_copy(channel, champion, brief, brand),
         "variant_b": agent.template_copy(channel, {**champion, dim: val}, brief, brand),
     }
@@ -310,7 +323,7 @@ def suggest(memory, channel: str, brief: str, profile: dict, campaigns: list,
     `avoid` lists tests already suggested; `force` is a (dimension, value) the owner picked.
     Returns {plan, strategy, source, error, prompt, context, past, options, locks, ...}."""
     context = agent.recall(memory, channel, brief) if use_memory else \
-        {"brand": [], "learnings": [], "playbook": None}
+        {"brand": [], "learnings": [], "shared": [], "playbook": None}
     locks = agent.brief_locks(channel, brief)
     champion, options = agent.test_options(memory, channel, use_memory, locks)
     past = similar_campaigns(campaigns, channel, brief) if use_memory else []
@@ -327,7 +340,8 @@ def suggest(memory, channel: str, brief: str, profile: dict, campaigns: list,
                    + "; ".join(f"{d}={v}" for d, v in avoid))
 
     def offline():
-        return _offline(memory, brief, channel, profile, champion, options, round_no, avoid, force, use_memory)
+        return _offline(memory, brief, channel, profile, champion, options, round_no, avoid, force, use_memory,
+                        context.get("shared", []))
 
     strategy, source, error = None, "offline", None
     if provider():
@@ -352,8 +366,11 @@ def suggest(memory, channel: str, brief: str, profile: dict, campaigns: list,
     # models leak option ids into prose and overstate certainty.
     dim, val = strategy["test_dimension"], strategy["challenger_value"]
     strategy["recommendation"] = agent.describe_change(channel, dim, champion[dim], val)
-    has_evidence = use_memory and any(m["metadata"].get("channel") == channel and m["metadata"].get("dimension") == dim
-                                      for m in memory.all(kind="learning"))
+    has_evidence = use_memory and (
+        any(m["metadata"].get("channel") == channel and m["metadata"].get("dimension") == dim
+            for m in memory.all(kind="learning"))
+        or any((m["metadata"].get("dimension"), m["metadata"].get("winner")) == (dim, val)
+               for m in context.get("shared", [])))
     strategy["confidence"] = "medium" if has_evidence else "low"
     for key in ("variant_a", "variant_b"):
         strategy[key]["cta"] = _readable_cta(channel, strategy[key]["cta"])
